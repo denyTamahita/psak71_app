@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-white py-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2 class="card-title mb-0">Hasil Regresi</h2>
+                        <div>
+                            <span class="badge bg-primary">Periode: {{ periode }}</span>
+                            <span class="badge bg-info ms-2">{{ macro.macro_variable_name }}</span>
+                            <a href="{{ url_for('regression', periode=periode, macro_variable_id=macro.macro_variable_id) }}" class="btn btn-outline-primary ms-3">
+                                <i class="bi bi-arrow-left"></i> Kembali
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Regression Statistics -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h4 class="card-title">Statistik Regresi</h4>
+                                    <table class="table">
+                                        <tr>
+                                            <th>R-squared:</th>
+                                            <td>{{ "%.4f"|format(results.r_squared) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Intercept:</th>
+                                            <td>{{ "%.4f"|format(results.intercept) }}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h4 class="card-title">Koefisien Variabel</h4>
+                                    <table class="table">
+                                        {% if results.variable_names|length == 1 %}
+                                            <tr>
+                                                <th>{{ results.variable_names[0] }}:</th>
+                                                <td>{{ "%.4f"|format(results.coefficients) }}</td>
+                                            </tr>
+                                        {% else %}
+                                            {% for name, coef in results.variable_names|zip(results.coefficients) %}
+                                            <tr>
+                                                <th>{{ name }}:</th>
+                                                <td>{{ "%.4f"|format(coef) }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Regression Plot -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <canvas id="regressionPlot"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Data Table -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h4 class="card-title">Data dan Prediksi</h4>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped">
+                                            <thead>
+                                                <tr>
+                                                    <th>Tanggal</th>
+                                                    <th>Aktual</th>
+                                                    <th>Prediksi</th>
+                                                    <th>Selisih</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for date, actual, predicted in results.dates|zip(results.actual_values, results.predicted_values) %}
+                                                <tr>
+                                                    <td>{{ date }}</td>
+                                                    <td>{{ "%.2f"|format(actual) }}</td>
+                                                    <td>{{ "%.2f"|format(predicted) }}</td>
+                                                    <td>{{ "%.2f"|format(actual - predicted) }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('regressionPlot').getContext('2d');
+    new Chart(ctx, {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: 'Aktual',
+                data: {{ results.dates|tojson|safe }}.map((date, i) => ({
+                    x: new Date(date),
+                    y: {{ results.actual_values|tojson|safe }}[i]
+                })),
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                showLine: false
+            }, {
+                label: 'Prediksi',
+                data: {{ results.dates|tojson|safe }}.map((date, i) => ({
+                    x: new Date(date),
+                    y: {{ results.predicted_values|tojson|safe }}[i]
+                })),
+                backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                showLine: true,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'month'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Tanggal'
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Nilai'
+                    }
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Grafik Regresi'
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

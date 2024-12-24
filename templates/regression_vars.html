@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Data Regresi</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="row mb-3">
+                            <!-- Periode -->
+                            <div class="col-md-4">
+                                <label class="form-label">Periode</label>
+                                <select class="form-select" name="periode" id="periode">
+                                    {% for p in periods %}
+                                    <option value="{{ p }}" {% if p == selected_period %}selected{% endif %}>
+                                        {{ p }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Segmentasi -->
+                            <div class="col-md-4">
+                                <label class="form-label">Segmentasi</label>
+                                <select class="form-select" name="segmentasi" id="segmentasi">
+                                    {% for seg in segmentasi_list %}
+                                    <option value="{{ seg.parmid }}" {% if seg.parmid == selected_segmentasi %}selected{% endif %}>
+                                        {{ seg.parmnm }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Variabel X -->
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <label class="form-label">Pilih Variabel X</label>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 50px;">Pilih</th>
+                                                <th>Nama Variabel</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for var in variables %}
+                                            <tr>
+                                                <td class="text-center">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" 
+                                                               name="x_variables" value="{{ var[0] }}"
+                                                               id="var_{{ var[0] }}"
+                                                               {% if var[0] in selected_x %}checked{% endif %}>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <label class="form-check-label" for="var_{{ var[0] }}">
+                                                        {{ var[1] }}
+                                                    </label>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-search me-1"></i> Retrieve Data
+                            </button>
+                        </div>
+                    </form>
+
+                    {% if data %}
+                    <div class="table-responsive mt-4">
+                        <div class="d-flex justify-content-end mb-3">
+                            <button type="button" class="btn btn-success" id="runRegression">
+                                <i class="bi bi-graph-up me-1"></i> Run Regression
+                            </button>
+                        </div>
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Tanggal</th>
+                                    <th>YPD</th>
+                                    {% for var in selected_vars %}
+                                    <th>{{ var.name }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in data %}
+                                <tr>
+                                    <td>{{ row.date }}</td>
+                                    <td>{{ "%.4f"|format(row.ypd) }}</td>
+                                    {% for var in selected_vars %}
+                                    <td>{{ "%.4f"|format(row['x_' + var.id|string]) }}</td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- ANOVA Results -->
+                    <div id="anovaResults" class="mt-4" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5>SUMMARY OUTPUT</h5>
+                            <button id="exportToExcel" class="btn btn-success btn-sm">
+                                <i class="fas fa-file-excel"></i> Export to Excel
+                            </button>
+                        </div>
+                        <h6>Regression Statistics</h6>
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm table-bordered">
+                                <tbody>
+                                    <tr>
+                                        <td>Multiple R</td>
+                                        <td id="multipleR"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>R Square</td>
+                                        <td id="rSquared"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Adjusted R Square</td>
+                                        <td id="adjRSquared"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Standard Error</td>
+                                        <td id="standardError"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Observations</td>
+                                        <td id="observations"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- ANOVA Table -->
+                        <div class="table-responsive mb-3">
+                            <h6>ANOVA</h6>
+                            <table class="table table-sm table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th>df</th>
+                                        <th>SS</th>
+                                        <th>MS</th>
+                                        <th>F</th>
+                                        <th>Significance F</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Regression</td>
+                                        <td id="regressionDf"></td>
+                                        <td id="regressionSS"></td>
+                                        <td id="regressionMS"></td>
+                                        <td id="fStat"></td>
+                                        <td id="fPvalue"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Residual</td>
+                                        <td id="residualDf"></td>
+                                        <td id="residualSS"></td>
+                                        <td id="residualMS"></td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Total</td>
+                                        <td id="totalDf"></td>
+                                        <td id="totalSS"></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Coefficients Table -->
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th>Coefficients</th>
+                                        <th>Standard Error</th>
+                                        <th>t Stat</th>
+                                        <th>P-value</th>
+                                        <th>Lower 95%</th>
+                                        <th>Upper 95%</th>
+                                        <th>Lower 95.0%</th>
+                                        <th>Upper 95.0%</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="coefficientsBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('periode').addEventListener('change', function() {
+    this.form.submit();
+});
+
+{% if data %}
+document.getElementById('exportToExcel').addEventListener('click', function() {
+    if (!window.regressionResults) {
+        alert('Please run regression analysis first');
+        return;
+    }
+    
+    fetch('/export_regression', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(window.regressionResults)
+    })
+    .then(response => response.blob())
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'regression_results.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error exporting results');
+    });
+});
+
+document.getElementById('runRegression').addEventListener('click', function() {
+    const data = {
+        periode: '{{ selected_period }}',
+        segmentasi: '{{ selected_segmentasi }}',
+        x_variables: {{ selected_x|tojson|safe }},
+        data: {{ data|tojson|safe }}
+    };
+
+    fetch('/run_regression', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(results => {
+        // Store results globally for export
+        window.regressionResults = results;
+        
+        // Show results div
+        document.getElementById('anovaResults').style.display = 'block';
+
+        // Update model summary
+        document.getElementById('multipleR').textContent = results.multiple_r.toFixed(4);
+        document.getElementById('rSquared').textContent = results.r_squared.toFixed(4);
+        document.getElementById('adjRSquared').textContent = results.adjusted_r_squared.toFixed(4);
+        document.getElementById('standardError').textContent = results.standard_error.toFixed(4);
+        document.getElementById('observations').textContent = results.observations;
+
+        // Update ANOVA table
+        document.getElementById('regressionDf').textContent = results.regression_df;
+        document.getElementById('regressionSS').textContent = results.regression_ss.toFixed(4);
+        document.getElementById('regressionMS').textContent = results.regression_ms.toFixed(4);
+        document.getElementById('fStat').textContent = results.f_statistic.toFixed(4);
+        document.getElementById('fPvalue').textContent = results.f_pvalue.toExponential(4);
+        document.getElementById('residualDf').textContent = results.residual_df;
+        document.getElementById('residualSS').textContent = results.residual_ss.toFixed(4);
+        document.getElementById('residualMS').textContent = results.residual_ms.toFixed(4);
+        document.getElementById('totalDf').textContent = results.total_df;
+        document.getElementById('totalSS').textContent = results.total_ss.toFixed(4);
+
+        // Update coefficients table
+        const coeffBody = document.getElementById('coefficientsBody');
+        coeffBody.innerHTML = '';
+        results.variables.forEach(variable => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${variable.name}</td>
+                <td>${variable.coefficient.toFixed(4)}</td>
+                <td>${variable.std_err.toFixed(4)}</td>
+                <td>${variable.t_stat.toFixed(4)}</td>
+                <td>${variable.p_value.toExponential(4)}</td>
+                <td>${variable.lower_95.toFixed(4)}</td>
+                <td>${variable.upper_95.toFixed(4)}</td>
+                <td>${variable.lower_95_0.toFixed(4)}</td>
+                <td>${variable.upper_95_0.toFixed(4)}</td>
+            `;
+            coeffBody.appendChild(row);
+        });
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error running regression. Please check console for details.');
+    });
+});
+{% endif %}
+</script>
+{% endblock %}

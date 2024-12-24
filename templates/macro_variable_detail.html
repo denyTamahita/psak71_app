@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-white py-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2 class="card-title mb-0">Detail Variabel</h2>
+                        <div>
+                            <span class="badge bg-primary">Periode: {{ periode }}</span>
+                            <span class="badge bg-info ms-2">{{ macro.macro_variable_name }}</span>
+                            <a href="{{ url_for('macro_variables') }}" class="btn btn-outline-primary ms-3">
+                                <i class="bi bi-arrow-left"></i> Kembali
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if stats %}
+                    <!-- Statistics Cards -->
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2">Nilai Terakhir</h6>
+                                    <h3 class="card-title mb-0">{{ "%.2f"|format(stats.latest) }}</h3>
+                                    <small>{{ stats.latest_date.strftime('%Y-%m-%d') }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2">Rata-rata</h6>
+                                    <h3 class="card-title mb-0">{{ "%.2f"|format(stats.avg) }}</h3>
+                                    <small>{{ stats.count }} data point</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2">Nilai Minimum</h6>
+                                    <h3 class="card-title mb-0">{{ "%.2f"|format(stats.min) }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2">Nilai Maksimum</h6>
+                                    <h3 class="card-title mb-0">{{ "%.2f"|format(stats.max) }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chart -->
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <canvas id="valueChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Data Table -->
+                    <div class="card">
+                        <div class="card-body">
+                            <h4 class="card-title">Historical Data</h4>
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Tanggal Regresi</th>
+                                            <th>Nilai</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for value in values %}
+                                        <tr>
+                                            <td>{{ value.date_regresi.strftime('%Y-%m-%d') }}</td>
+                                            <td>{{ "%.2f"|format(value.value) }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Tidak ada data untuk variabel ini pada periode {{ periode }}.
+                        <a href="{{ url_for('upload_macro') }}" class="alert-link">Upload data</a> untuk memulai.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if stats %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('valueChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ values|map(attribute='date_regresi')|map('strftime', '%Y-%m-%d')|list|tojson|safe }},
+            datasets: [{
+                label: '{{ macro.macro_variable_name }}',
+                data: {{ values|map(attribute='value')|list|tojson|safe }},
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Trend {{ macro.macro_variable_name }}'
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Tanggal'
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Nilai'
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

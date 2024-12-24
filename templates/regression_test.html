@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-white py-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2 class="card-title mb-0">Uji Regresi</h2>
+                        <div>
+                            <span class="badge bg-primary">Periode: {{ periode }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('regression_test') }}">
+                        <!-- Periode -->
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="periode" class="form-label fw-bold">Periode</label>
+                                    <select class="form-select" name="periode" id="periode" required>
+                                        {% for p in periods %}
+                                        <option value="{{ p }}" {% if p == periode %}selected{% endif %}>{{ p }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Variabel Y -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label fw-bold">Variabel Y (Dependent)</label>
+                                    <select class="form-select" name="y_variable" id="y_variable" required>
+                                        <option value="">Pilih Variabel Y</option>
+                                        {% for var in variables %}
+                                        <option value="{{ var[0] }}" {% if var[0] == y_variable %}selected{% endif %}>
+                                            {{ var[1] }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Variabel X -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Variabel X (Independent)</label>
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 50px;">Pilih</th>
+                                                <th>Nama Variabel</th>
+                                                <th>Nilai Historis</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for var in variables %}
+                                            <tr>
+                                                <td>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="x_variables" 
+                                                            value="{{ var[0] }}" id="var_{{ var[0] }}"
+                                                            {% if var[0] in x_variables %}checked{% endif %}>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <label class="form-check-label" for="var_{{ var[0] }}">
+                                                        {{ var[1] }}
+                                                    </label>
+                                                </td>
+                                                <td>
+                                                    <div class="input-group">
+                                                        <input type="number" class="form-control" name="pd_{{ var[0] }}"
+                                                            id="pd_{{ var[0] }}" placeholder="Masukkan nilai PD" step="0.01"
+                                                            value="{{ pd_values.get(var[0], '') }}">
+                                                        <button type="button" class="btn btn-outline-secondary" 
+                                                                onclick="showMacroValues('{{ var[0] }}', '{{ var[1] }}')">
+                                                            <i class="bi bi-table"></i>
+                                                        </button>
+                                                    </div>
+                                                    
+                                                    <!-- Macro Values Modal -->
+                                                    <div class="modal fade" id="macroValuesModal_{{ var[0] }}" tabindex="-1">
+                                                        <div class="modal-dialog modal-lg">
+                                                            <div class="modal-content">
+                                                                <div class="modal-header">
+                                                                    <h5 class="modal-title">Nilai Historis - {{ var[1] }}</h5>
+                                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                                </div>
+                                                                <div class="modal-body">
+                                                                    <div class="table-responsive" style="max-height: 400px;">
+                                                                        <table class="table table-sm table-hover">
+                                                                            <thead class="table-light sticky-top">
+                                                                                <tr>
+                                                                                    <th>Tanggal</th>
+                                                                                    <th>Nilai</th>
+                                                                                    <th>Aksi</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody id="macroValuesBody_{{ var[0] }}">
+                                                                                <tr>
+                                                                                    <td colspan="3" class="text-center">
+                                                                                        <div class="spinner-border text-primary" role="status">
+                                                                                            <span class="visually-hidden">Loading...</span>
+                                                                                        </div>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-calculator"></i> Lakukan Regresi
+                            </button>
+                        </div>
+                    </form>
+
+                    {% if results %}
+                    <hr class="my-4">
+                    <div class="row">
+                        <div class="col-12">
+                            <h4>Hasil Regresi</h4>
+                            
+                            <!-- Model Summary -->
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">Model Summary</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>R</th>
+                                                    <th>R Square</th>
+                                                    <th>Adjusted R Square</th>
+                                                    <th>Std. Error</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>{{ "%.4f"|format(results.r) }}</td>
+                                                    <td>{{ "%.4f"|format(results.r_squared) }}</td>
+                                                    <td>{{ "%.4f"|format(results.adj_r_squared) }}</td>
+                                                    <td>{{ "%.4f"|format(results.std_error) }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ANOVA Table -->
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">ANOVA</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Source</th>
+                                                    <th>Sum of Squares</th>
+                                                    <th>df</th>
+                                                    <th>Mean Square</th>
+                                                    <th>F</th>
+                                                    <th>Sig.</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>Regression</td>
+                                                    <td>{{ "%.4f"|format(results.anova.regression_ss) }}</td>
+                                                    <td>{{ results.anova.regression_df }}</td>
+                                                    <td>{{ "%.4f"|format(results.anova.regression_ms) }}</td>
+                                                    <td>{{ "%.4f"|format(results.anova.f_stat) }}</td>
+                                                    <td>{{ "%.4f"|format(results.anova.f_pvalue) }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Residual</td>
+                                                    <td>{{ "%.4f"|format(results.anova.residual_ss) }}</td>
+                                                    <td>{{ results.anova.residual_df }}</td>
+                                                    <td>{{ "%.4f"|format(results.anova.residual_ms) }}</td>
+                                                    <td></td>
+                                                    <td></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Total</td>
+                                                    <td>{{ "%.4f"|format(results.anova.total_ss) }}</td>
+                                                    <td>{{ results.anova.total_df }}</td>
+                                                    <td></td>
+                                                    <td></td>
+                                                    <td></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Coefficients Table -->
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">Coefficients</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Variable</th>
+                                                    <th>Coefficient</th>
+                                                    <th>Std. Error</th>
+                                                    <th>t Stat</th>
+                                                    <th>P-value</th>
+                                                    <th>Lower 95%</th>
+                                                    <th>Upper 95%</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>Constant</td>
+                                                    <td>{{ "%.4f"|format(results.coefficients.intercept.coef) }}</td>
+                                                    <td>{{ "%.4f"|format(results.coefficients.intercept.std_err) }}</td>
+                                                    <td>{{ "%.4f"|format(results.coefficients.intercept.t_stat) }}</td>
+                                                    <td>{{ "%.4f"|format(results.coefficients.intercept.p_value) }}</td>
+                                                    <td>{{ "%.4f"|format(results.coefficients.intercept.lower_ci) }}</td>
+                                                    <td>{{ "%.4f"|format(results.coefficients.intercept.upper_ci) }}</td>
+                                                </tr>
+                                                {% for var in results.coefficients.variables %}
+                                                <tr>
+                                                    <td>{{ var.name }}</td>
+                                                    <td>{{ "%.4f"|format(var.coef) }}</td>
+                                                    <td>{{ "%.4f"|format(var.std_err) }}</td>
+                                                    <td>{{ "%.4f"|format(var.t_stat) }}</td>
+                                                    <td>{{ "%.4f"|format(var.p_value) }}</td>
+                                                    <td>{{ "%.4f"|format(var.lower_ci) }}</td>
+                                                    <td>{{ "%.4f"|format(var.upper_ci) }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Prediction with PD -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">Prediksi dengan PD</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Variable</th>
+                                                    <th>PD Value</th>
+                                                    <th>Coefficient</th>
+                                                    <th>Impact</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for var in results.pd_prediction.variables %}
+                                                <tr>
+                                                    <td>{{ var.name }}</td>
+                                                    <td>{{ "%.4f"|format(var.pd_value) }}</td>
+                                                    <td>{{ "%.4f"|format(var.coefficient) }}</td>
+                                                    <td>{{ "%.4f"|format(var.impact) }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                                <tr class="table-light fw-bold">
+                                                    <td colspan="3">Predicted Value:</td>
+                                                    <td>{{ "%.4f"|format(results.pd_prediction.total) }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Regression Chart -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">Grafik Regresi</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="regressionChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showMacroValues(macroId, macroName) {
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('macroValuesModal_' + macroId));
+    modal.show();
+    
+    // Get current period
+    const periode = document.getElementById('periode').value;
+    
+    // Fetch values
+    fetch(`/get_macro_values/${periode}/${macroId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            // Build table rows
+            const tbody = document.getElementById('macroValuesBody_' + macroId);
+            tbody.innerHTML = '';
+            
+            data.values.forEach((value, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${data.dates[index]}</td>
+                    <td>${value.toFixed(4)}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-primary"
+                                onclick="useMacroValue('pd_${macroId}', ${value})">
+                            Gunakan
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            const tbody = document.getElementById('macroValuesBody_' + macroId);
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-center text-danger">
+                        Error: ${error.message}
+                    </td>
+                </tr>
+            `;
+        });
+}
+
+function useMacroValue(inputId, value) {
+    document.getElementById(inputId).value = value;
+    // Close the modal
+    var modal = bootstrap.Modal.getInstance(document.querySelector('#macroValuesModal_' + inputId.split('_')[1]));
+    modal.hide();
+}
+
+{% if results and results.data %}
+// Plot regression results
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('regressionChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ results.data.dates|tojson|safe }},
+            datasets: [{
+                label: 'Actual',
+                data: {{ results.data.y_actual|tojson|safe }},
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1,
+                fill: false
+            }, {
+                label: 'Predicted',
+                data: {{ results.data.y_pred|tojson|safe }},
+                borderColor: 'rgb(255, 99, 132)',
+                tension: 0.1,
+                fill: false,
+                borderDash: [5, 5]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Actual vs Predicted Values'
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Value'
+                    }
+                }
+            }
+        }
+    });
+});
+{% endif %}
+</script>
+{% endblock %}
